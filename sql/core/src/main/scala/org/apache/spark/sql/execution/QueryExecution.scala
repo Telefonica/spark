@@ -17,16 +17,22 @@
 
 package org.apache.spark.sql.execution
 
+import java.io.{BufferedWriter, OutputStreamWriter}
 import java.nio.charset.StandardCharsets
 import java.sql.{Date, Timestamp}
+
+import org.apache.hadoop.fs.Path
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.analysis.UnsupportedOperationChecker
+import org.apache.spark.sql.catalyst.plans.QueryPlan
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, ReturnAnswer}
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
+import org.apache.spark.sql.catalyst.util.StringUtils.StringConcat
+import org.apache.spark.sql.catalyst.util.truncatedString
 import org.apache.spark.sql.execution.command.{DescribeTableCommand, ExecutedCommandExec, ShowTablesCommand}
 import org.apache.spark.sql.execution.exchange.{EnsureRequirements, ReuseExchange}
 import org.apache.spark.sql.internal.SQLConf
@@ -101,10 +107,6 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
     CollapseCodegenStages(sparkSession.sessionState.conf),
     ReuseExchange(sparkSession.sessionState.conf),
     ReuseSubquery(sparkSession.sessionState.conf))
-
-  protected def stringOrError[A](f: => A): String =
-    try f.toString catch { case e: AnalysisException => e.toString }
-
 
   /**
    * Returns the result as a hive compatible sequence of strings. This is used in tests and
@@ -191,40 +193,53 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
   }
 
   def simpleString: String = withRedaction {
-    s"""== Physical Plan ==
-       |${stringOrError(executedPlan.treeString(verbose = false))}
-      """.stripMargin.trim
+    val concat = new StringConcat()
+    concat.append("== Physical Plan ==\n")
+    QueryPlan.append(executedPlan, concat.append, verbose = false, addSuffix = false)
+    concat.append("\n")
+    concat.toString
+  }
+
+  private def writePlans(append: String => Unit, maxFields: Int): Unit = {
+    val (verbose, addSuffix) = (true, false)
+    append("== Parsed Logical Plan ==\n")
+    QueryPlan.append(logical, append, verbose, addSuffix, maxFields)
+    append("\n== Analyzed Logical Plan ==\n")
+    val analyzedOutput = try {
+      truncatedString(
+        analyzed.output.map(o => s"${o.name}: ${o.dataType.simpleString}"), ", ", maxFields)
+    } catch {
+      case e: AnalysisException => e.toString
+    }
+    append(analyzedOutput)
+    append("\n")
+    QueryPlan.append(analyzed, append, verbose, addSuffix, maxFields)
+    append("\n== Optimized Logical Plan ==\n")
+    QueryPlan.append(optimizedPlan, append, verbose, addSuffix, maxFields)
+    append("\n== Physical Plan ==\n")
+    QueryPlan.append(executedPlan, append, verbose, addSuffix, maxFields)
   }
 
   override def toString: String = withRedaction {
-    def output = Utils.truncatedString(
-      analyzed.output.map(o => s"${o.name}: ${o.dataType.simpleString}"), ", ")
-    val analyzedPlan = Seq(
-      stringOrError(output),
-      stringOrError(analyzed.treeString(verbose = true))
-    ).filter(_.nonEmpty).mkString("\n")
-
-    s"""== Parsed Logical Plan ==
-       |${stringOrError(logical.treeString(verbose = true))}
-       |== Analyzed Logical Plan ==
-       |$analyzedPlan
-       |== Optimized Logical Plan ==
-       |${stringOrError(optimizedPlan.treeString(verbose = true))}
-       |== Physical Plan ==
-       |${stringOrError(executedPlan.treeString(verbose = true))}
-    """.stripMargin.trim
+    val concat = new StringConcat()
+    writePlans(concat.append, SQLConf.get.maxToStringFields)
+    concat.toString
   }
 
   def stringWithStats: String = withRedaction {
+    val concat = new StringConcat()
+    val maxFields = SQLConf.get.maxToStringFields
+
     // trigger to compute stats for logical plans
     optimizedPlan.stats
 
     // only show optimized logical plan and physical plan
-    s"""== Optimized Logical Plan ==
-        |${stringOrError(optimizedPlan.treeString(verbose = true, addSuffix = true))}
-        |== Physical Plan ==
-        |${stringOrError(executedPlan.treeString(verbose = true))}
-    """.stripMargin.trim
+    concat.append("== Optimized Logical Plan ==\n")
+    QueryPlan.append(optimizedPlan, concat.append, verbose = true, addSuffix = true, maxFields)
+    concat.append("\n== Physical Plan ==\n")
+    QueryPlan.append(executedPlan, concat.append, verbose = true, addSuffix = false, maxFields)
+    concat.append("\n")
+    concat.toString
   }
 
   /**
@@ -256,6 +271,25 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
      */
     def codegenToSeq(): Seq[(String, String)] = {
       org.apache.spark.sql.execution.debug.codegenStringSeq(executedPlan)
+    }
+
+    /**
+     * Dumps debug information about query execution into the specified file.
+     *
+     * @param maxFields maximum number of fields converted to string representation.
+     */
+    def toFile(path: String, maxFields: Int = Int.MaxValue): Unit = {
+      val filePath = new Path(path)
+      val fs = filePath.getFileSystem(sparkSession.sessionState.newHadoopConf())
+      val writer = new BufferedWriter(new OutputStreamWriter(fs.create(filePath)))
+
+      try {
+        writePlans(writer.write, maxFields)
+        writer.write("\n== Whole Stage Codegen ==\n")
+        org.apache.spark.sql.execution.debug.writeCodegen(writer.write, executedPlan)
+      } finally {
+        writer.close()
+      }
     }
   }
 }

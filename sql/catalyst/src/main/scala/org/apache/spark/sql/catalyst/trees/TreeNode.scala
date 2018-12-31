@@ -34,6 +34,9 @@ import org.apache.spark.sql.catalyst.errors._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.JoinType
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
+import org.apache.spark.sql.catalyst.util.StringUtils.StringConcat
+import org.apache.spark.sql.catalyst.util.truncatedString
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.util.Utils
@@ -470,8 +473,22 @@ abstract class TreeNode[BaseType <: TreeNode[BaseType]] extends Product {
   /** Returns a string representation of the nodes in this tree */
   def treeString: String = treeString(verbose = true)
 
-  def treeString(verbose: Boolean, addSuffix: Boolean = false): String = {
-    generateTreeString(0, Nil, new StringBuilder, verbose = verbose, addSuffix = addSuffix).toString
+  def treeString(
+      verbose: Boolean,
+      addSuffix: Boolean = false,
+      maxFields: Int = SQLConf.get.maxToStringFields): String = {
+    val concat = new StringConcat()
+
+    treeString(concat.append, verbose, addSuffix, maxFields)
+    concat.toString
+  }
+
+  def treeString(
+      append: String => Unit,
+      verbose: Boolean,
+      addSuffix: Boolean,
+      maxFields: Int): Unit = {
+    generateTreeString(0, Nil, append, verbose, "", addSuffix, maxFields)
   }
 
   /**
@@ -534,16 +551,16 @@ abstract class TreeNode[BaseType <: TreeNode[BaseType]] extends Product {
   def generateTreeString(
       depth: Int,
       lastChildren: Seq[Boolean],
-      builder: StringBuilder,
+      append: String => Unit,
       verbose: Boolean,
       prefix: String = "",
       addSuffix: Boolean = false): StringBuilder = {
 
     if (depth > 0) {
       lastChildren.init.foreach { isLast =>
-        builder.append(if (isLast) "   " else ":  ")
+        append(if (isLast) "   " else ":  ")
       }
-      builder.append(if (lastChildren.last) "+- " else ":- ")
+      append(if (lastChildren.last) "+- " else ":- ")
     }
 
     val str = if (verbose) {
@@ -551,24 +568,24 @@ abstract class TreeNode[BaseType <: TreeNode[BaseType]] extends Product {
     } else {
       simpleString
     }
-    builder.append(prefix)
-    builder.append(str)
-    builder.append("\n")
+    append(prefix)
+    append(str)
+    append("\n")
 
     if (innerChildren.nonEmpty) {
       innerChildren.init.foreach(_.generateTreeString(
-        depth + 2, lastChildren :+ children.isEmpty :+ false, builder, verbose,
-        addSuffix = addSuffix))
+        depth + 2, lastChildren :+ children.isEmpty :+ false, append, verbose,
+        addSuffix = addSuffix, maxFields = maxFields))
       innerChildren.last.generateTreeString(
-        depth + 2, lastChildren :+ children.isEmpty :+ true, builder, verbose,
-        addSuffix = addSuffix)
+        depth + 2, lastChildren :+ children.isEmpty :+ true, append, verbose,
+        addSuffix = addSuffix, maxFields = maxFields)
     }
 
     if (children.nonEmpty) {
       children.init.foreach(_.generateTreeString(
-        depth + 1, lastChildren :+ false, builder, verbose, prefix, addSuffix))
+        depth + 1, lastChildren :+ false, append, verbose, prefix, addSuffix, maxFields))
       children.last.generateTreeString(
-        depth + 1, lastChildren :+ true, builder, verbose, prefix, addSuffix)
+        depth + 1, lastChildren :+ true, append, verbose, prefix, addSuffix, maxFields)
     }
 
     builder
