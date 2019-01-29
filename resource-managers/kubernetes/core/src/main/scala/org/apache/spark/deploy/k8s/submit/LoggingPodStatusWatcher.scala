@@ -29,7 +29,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.util.ThreadUtils
 
 private[k8s] trait LoggingPodStatusWatcher extends Watcher[Pod] {
-  def awaitCompletion(): Unit
+  def awaitCompletion(): Boolean
 }
 
 /**
@@ -134,11 +134,23 @@ private[k8s] class LoggingPodStatusWatcherImpl(
     }.mkString("")
   }
 
-  override def awaitCompletion(): Unit = {
+  override def awaitCompletion(): Boolean = {
     podCompletedFuture.await()
-    logInfo(pod.map { p =>
-      s"Container final statuses:\n\n${containersDescription(p)}"
-    }.getOrElse("No containers were found in the driver pod."))
+    pod.map { p =>
+      logInfo(s"Container final statuses:\n\n${containersDescription(p)}")
+      p.getStatus.getContainerStatuses.asScala.map { status =>
+        val state = status.getState
+        Option(state.getRunning)
+          .orElse(Option(state.getTerminated))
+          .orElse(Option(state.getWaiting))
+          .map {
+            case running: ContainerStateRunning => 0
+            case waiting: ContainerStateWaiting => 0
+            case terminated: ContainerStateTerminated => terminated.getExitCode
+            case unknown => throw new SparkException(s"Unexpected container status type ${unknown.getClass}.")
+          }.getOrElse(0)
+      }.forall(x => x == 0)
+    }.getOrElse(false)
   }
 
   private def containersDescription(p: Pod): String = {

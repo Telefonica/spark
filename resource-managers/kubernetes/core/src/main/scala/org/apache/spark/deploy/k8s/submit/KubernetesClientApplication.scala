@@ -152,8 +152,13 @@ private[spark] class Client(
 
       if (waitForAppCompletion) {
         logInfo(s"Waiting for application $appName to finish...")
-        watcher.awaitCompletion()
-        logInfo(s"Application $appName finished.")
+        if (watcher.awaitCompletion) {
+          logInfo(s"Application $appName finished successfully.")
+        } else {
+          logInfo(s"Application $appName finished with error.")
+          throw new RuntimeException(s"Application $appName finished with error.")
+        }
+
       } else {
         logInfo(s"Deployed Spark application $appName into Kubernetes.")
       }
