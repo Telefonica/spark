@@ -651,4 +651,14 @@ package object config {
       .stringConf
       .toSequence
       .createWithDefault(Nil)
+
+  private[spark] val JARS = ConfigBuilder("spark.jars")
+    .stringConf
+    .toSequence
+    .createWithDefault(Nil)
+
+  private[spark] val FILES = ConfigBuilder("spark.files")
+    .stringConf
+    .toSequence
+    .createWithDefault(Nil)
 }
