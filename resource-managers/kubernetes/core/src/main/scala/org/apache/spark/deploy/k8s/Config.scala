@@ -237,6 +237,27 @@ private[spark] object Config extends Logging {
 
   val KUBERNETES_NODE_SELECTOR_PREFIX = "spark.kubernetes.node.selector."
 
+  val KUBERNETES_DELETE_EXECUTORS =
+    ConfigBuilder("spark.kubernetes.executor.deleteOnTermination")
+      .doc("If set to false then executor pods will not be deleted in case " +
+        "of failure or normal termination.")
+      .booleanConf
+      .createWithDefault(true)
+
+  val KUBERNETES_SUBMIT_GRACE_PERIOD =
+    ConfigBuilder("spark.kubernetes.appKillPodDeletionGracePeriod")
+      .doc("Time to wait for graceful deletion of Spark pods when spark-submit" +
+        " is used for killing an application.")
+      .timeConf(TimeUnit.SECONDS)
+      .createOptional
+
+  val KUBERNETES_FILE_UPLOAD_PATH =
+    ConfigBuilder("spark.kubernetes.file.upload.path")
+      .doc("Hadoop compatible file system path where files from the local file system " +
+        "will be uploded to in cluster mode.")
+      .stringConf
+      .createOptional
+
   val KUBERNETES_DRIVER_LABEL_PREFIX = "spark.kubernetes.driver.label."
   val KUBERNETES_DRIVER_ANNOTATION_PREFIX = "spark.kubernetes.driver.annotation."
   val KUBERNETES_DRIVER_SECRETS_PREFIX = "spark.kubernetes.driver.secrets."

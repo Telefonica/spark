@@ -28,6 +28,7 @@ import org.apache.spark.deploy.k8s.Constants._
 import org.apache.spark.deploy.k8s.submit._
 import org.apache.spark.internal.config._
 import org.apache.spark.ui.SparkUI
+import org.apache.spark.util.Utils
 
 private[spark] class BasicDriverFeatureStep(
     conf: KubernetesConf[KubernetesDriverSpecificConf])
@@ -135,19 +136,17 @@ private[spark] class BasicDriverFeatureStep(
       "spark.app.id" -> conf.appId,
       KUBERNETES_EXECUTOR_POD_NAME_PREFIX.key -> conf.appResourceNamePrefix,
       KUBERNETES_DRIVER_SUBMIT_CHECK.key -> "true")
-
-    val resolvedSparkJars = KubernetesUtils.resolveFileUrisAndPath(
-      conf.sparkJars())
-    val resolvedSparkFiles = KubernetesUtils.resolveFileUrisAndPath(
-      conf.sparkFiles)
-    if (resolvedSparkJars.nonEmpty) {
-      additionalProps.put("spark.jars", resolvedSparkJars.mkString(","))
-    }
-    if (resolvedSparkFiles.nonEmpty) {
-      additionalProps.put("spark.files", resolvedSparkFiles.mkString(","))
-    }
-    additionalProps.toMap
+      // try upload local, resolvable files to a hadoop compatible file system
+      Seq(JARS, FILES).foreach { key =>
+        val value = conf.get(key).filter(uri => KubernetesUtils.isLocalAndResolvable(uri))
+        val resolved = KubernetesUtils.uploadAndTransformFileUris(value, Some(conf.sparkConf))
+        if (resolved.nonEmpty) {
+          additionalProps.put(key.key, resolved.mkString(","))
+        }
+      }
+      additionalProps.toMap
   }
 
   override def getAdditionalKubernetesResources(): Seq[HasMetadata] = Seq.empty
 }
+
