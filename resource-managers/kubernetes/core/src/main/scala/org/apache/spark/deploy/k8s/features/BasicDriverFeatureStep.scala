@@ -138,10 +138,16 @@ private[spark] class BasicDriverFeatureStep(
       KUBERNETES_DRIVER_SUBMIT_CHECK.key -> "true")
       // try upload local, resolvable files to a hadoop compatible file system
       Seq(JARS, FILES).foreach { key =>
-        val value = conf.get(key).filter(uri => KubernetesUtils.isLocalAndResolvable(uri))
-        val resolved = KubernetesUtils.uploadAndTransformFileUris(value, Some(conf.sparkConf))
+        val (valueLocal, value) = conf.get(key)
+          .partition(uri => KubernetesUtils.isLocalAndResolvable(uri))
+        val resolvedLocal = KubernetesUtils
+          .uploadAndTransformFileUris(valueLocal, Some(conf.sparkConf))
+        val resolved = KubernetesUtils.resolveFileUrisAndPath(value)
         if (resolved.nonEmpty) {
           additionalProps.put(key.key, resolved.mkString(","))
+        }
+        if (resolvedLocal.nonEmpty) {
+          additionalProps.put(key.key, resolvedLocal.mkString(","))
         }
       }
       additionalProps.toMap
