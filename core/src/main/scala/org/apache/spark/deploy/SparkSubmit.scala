@@ -1161,7 +1161,7 @@ private[spark] object SparkSubmitUtils {
       val dd = new DefaultDependencyDescriptor(ri, false, false)
       dd.addDependencyConfiguration(ivyConfName, ivyConfName + "(runtime)")
       // scalastyle:off println
-      printStream.println(s"${dd.getDependencyId} added as a dependency")
+      printStream.println(s"${dd.getDependencyId} added as a dependency IS THIS REAL LIFE?")
       // scalastyle:on println
       md.addDependency(dd)
     }
