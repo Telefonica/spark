@@ -1318,8 +1318,8 @@ private[spark] object SparkSubmitUtils {
         val packagesDirectory: File = new File(ivySettings.getDefaultIvyUserDir, "jars")
         // scalastyle:off println
         printStream.println(
-          s"Ivy Default Cache set to: ${ivySettings.getDefaultCache.getAbsolutePath}")
-        printStream.println(s"The jars for the packages stored in: $packagesDirectory")
+          s"Ivy Default Cache REAL LIFE: ${ivySettings.getDefaultCache.getAbsolutePath}")
+        printStream.println(s"The jars IS THIS REAL LIFE: $packagesDirectory")
         // scalastyle:on println
 
         val ivy = Ivy.newInstance(ivySettings)
