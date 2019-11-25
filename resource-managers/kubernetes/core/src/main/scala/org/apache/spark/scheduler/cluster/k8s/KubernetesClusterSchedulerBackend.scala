@@ -100,6 +100,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
         .pods()
         .withLabel(SPARK_APP_ID_LABEL, applicationId())
         .withLabel(SPARK_ROLE_LABEL, SPARK_POD_EXECUTOR_ROLE)
+        .withGracePeriod(70)
         .delete()
     }
 
@@ -133,6 +134,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
       .withLabel(SPARK_APP_ID_LABEL, applicationId())
       .withLabel(SPARK_ROLE_LABEL, SPARK_POD_EXECUTOR_ROLE)
       .withLabelIn(SPARK_EXECUTOR_ID_LABEL, executorIds: _*)
+      .withGracePeriod(70)
       .delete()
     // Don't do anything else - let event handling from the Kubernetes API do the Spark changes
   }
