@@ -29,6 +29,7 @@ import org.apache.spark.sql.catalyst.catalog.ExternalCatalogUtils
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.StringType
 import org.apache.spark.util.SerializableConfiguration
+import org.slf4j.LoggerFactory
 
 /**
  * Abstract class for writing out data in a single Spark task.
@@ -46,6 +47,8 @@ abstract class FileFormatDataWriter(
   protected val MAX_FILE_COUNTER: Int = 1000 * 1000
   protected val updatedPartitions: mutable.Set[String] = mutable.Set[String]()
   protected var currentWriter: OutputWriter = _
+
+  private val LOG = LoggerFactory.getLogger(classOf[FileFormatDataWriter])
 
   /** Trackers for computing various statistics on the data as it's being written out. */
   protected val statsTrackers: Seq[WriteTaskStatsTracker] =
@@ -72,6 +75,9 @@ abstract class FileFormatDataWriter(
    */
   def commit(): WriteTaskResult = {
     releaseResources()
+    LOG.info("Sleeping to make sure files are written (eventual consistency bug)")
+    Thread.sleep(10000)
+    LOG.info("Task committed (nice!)")
     val summary = ExecutedWriteSummary(
       updatedPartitions = updatedPartitions.toSet,
       stats = statsTrackers.map(_.getFinalStats()))
