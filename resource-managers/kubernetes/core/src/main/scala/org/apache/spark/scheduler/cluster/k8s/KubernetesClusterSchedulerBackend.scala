@@ -96,11 +96,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
     }
 
     Utils.tryLogNonFatalError {
-      kubernetesClient
-        .pods()
-        .withLabel(SPARK_APP_ID_LABEL, applicationId())
-        .withLabel(SPARK_ROLE_LABEL, SPARK_POD_EXECUTOR_ROLE)
-        .delete()
+      logInfo(s"Skipping deletion of executor pods")
     }
 
     Utils.tryLogNonFatalError {
@@ -128,12 +124,8 @@ private[spark] class KubernetesClusterSchedulerBackend(
   }
 
   override def doKillExecutors(executorIds: Seq[String]): Future[Boolean] = Future[Boolean] {
-    kubernetesClient
-      .pods()
-      .withLabel(SPARK_APP_ID_LABEL, applicationId())
-      .withLabel(SPARK_ROLE_LABEL, SPARK_POD_EXECUTOR_ROLE)
-      .withLabelIn(SPARK_EXECUTOR_ID_LABEL, executorIds: _*)
-      .delete()
+    logInfo(s"Skipping deletion of executor pods")
+    true
     // Don't do anything else - let event handling from the Kubernetes API do the Spark changes
   }
 
