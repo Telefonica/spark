@@ -26,7 +26,7 @@ import scala.collection.mutable
 import scala.util.control.NonFatal
 import scala.util.Try
 
-import io.fabric8.kubernetes.api.model.{PersistentVolumeClaim, PodBuilder}
+import io.fabric8.kubernetes.api.model.{PersistentVolumeClaim, Pod, PodBuilder}
 import io.fabric8.kubernetes.client.KubernetesClient
 
 import org.apache.spark.{SecurityManager, SparkConf, SparkException}
@@ -74,21 +74,22 @@ private[spark] class ExecutorPodsAllocator(
 
   private val shouldDeleteExecutors = conf.get(KUBERNETES_DELETE_EXECUTORS)
 
-    // Retry 300 times waiting 2 seconds (10 minutes)
-  private def getDriverPodWithRetries(name: String) = {
 
-    def getDriverPod(retriesLeft: Int) = {
+  // Retry 300 times waiting 2 seconds (10 minutes)
+  private def getDriverPodWithRetries(name: String): Option[Pod] = {
+
+    def getDriverPod(retriesLeft: Int): Option[Pod] = {
       if (retriesLeft == 0) None
       else Try {
-        kubernetesClient.pods()
+        Option(kubernetesClient.pods()
           .withName(name)
-          .get()
-      } recover {
-        case e: Exception =>
-          logWarn(s"Couldn't get Spark Driver pod. Trying again in 2 seconds. $retriesLeft retries left.", e)
+          .get())
+      }.recover {
+        case e: Throwable =>
+          logWarning(s"Couldn't get Spark Driver pod. Trying again in 2 seconds. $retriesLeft retries left.", e)
           Thread.sleep(2000)
           getDriverPod(retriesLeft - 1)
-      }.toOption
+      }.get
     }
 
     getDriverPod(300)
