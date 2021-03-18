@@ -18,7 +18,7 @@ package org.apache.spark.scheduler.cluster.k8s
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 
-import io.fabric8.kubernetes.api.model.PodBuilder
+import io.fabric8.kubernetes.api.model.{Pod, PodBuilder}
 import io.fabric8.kubernetes.client.KubernetesClient
 import scala.collection.mutable
 import scala.util.Try
@@ -53,20 +53,20 @@ private[spark] class ExecutorPodsAllocator(
     .get(KUBERNETES_DRIVER_POD_NAME)
 
   // Retry 300 times waiting 2 seconds (10 minutes)
-  private def getDriverPodWithRetries(name: String) = {
+  private def getDriverPodWithRetries(name: String): Option[Pod] = {
 
-    def getDriverPod(retriesLeft: Int) = {
+    def getDriverPod(retriesLeft: Int): Option[Pod] = {
       if (retriesLeft == 0) None
       else Try {
-        kubernetesClient.pods()
+        Option(kubernetesClient.pods()
           .withName(name)
-          .get()
-      } recover {
-        case e: Exception =>
-          logWarn(s"Couldn't get Spark Driver pod. Trying again in 2 seconds. $retriesLeft retries left.", e)
+          .get())
+      }.recover {
+        case e: Throwable =>
+          logWarning(s"Couldn't get Spark Driver pod. Trying again in 2 seconds. $retriesLeft retries left.", e)
           Thread.sleep(2000)
           getDriverPod(retriesLeft - 1)
-      }.toOption
+      }.get
     }
 
     getDriverPod(300)
