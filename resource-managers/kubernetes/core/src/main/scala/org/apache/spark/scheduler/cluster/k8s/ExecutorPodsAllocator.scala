@@ -90,6 +90,24 @@ private[spark] class ExecutorPodsAllocator(
 
   def setTotalExpectedExecutors(total: Int): Unit = totalExpectedExecutors.set(total)
 
+  // Retry 300 times waiting 2 seconds (10 minutes)
+  private def createExecutorPodWithRetries(pod: Pod): Unit = {
+
+    def createExecutorPod(retriesLeft: Int): Unit = {
+      if (retriesLeft == 0) None
+      else Try {
+        kubernetesClient.pods().create(pod)
+      }.recover {
+        case e: Throwable =>
+          logWarning(s"Couldn't create Spark Executor pod. Trying again in 2 seconds. $retriesLeft retries left.", e)
+          Thread.sleep(2000)
+          createExecutorPod(retriesLeft - 1)
+      }
+    }
+
+    createExecutorPod(300)
+  }
+
   private def onNewSnapshots(applicationId: String, snapshots: Seq[ExecutorPodsSnapshot]): Unit = {
     newlyCreatedExecutors --= snapshots.flatMap(_.executorPods.keys)
     // For all executors we've created against the API but have not seen in a snapshot
@@ -155,7 +173,7 @@ private[spark] class ExecutorPodsAllocator(
             .addToContainers(executorPod.container)
             .endSpec()
             .build()
-          kubernetesClient.pods().create(podWithAttachedContainer)
+          createExecutorPodWithRetries(podWithAttachedContainer)
           newlyCreatedExecutors(newExecutorId) = clock.getTimeMillis()
           logDebug(s"Requested executor with id $newExecutorId from Kubernetes.")
         }
