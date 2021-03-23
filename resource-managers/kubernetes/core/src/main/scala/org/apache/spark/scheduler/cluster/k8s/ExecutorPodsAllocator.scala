@@ -149,6 +149,25 @@ private[spark] class ExecutorPodsAllocator(
     }
   }
 
+  // Retry 300 times waiting 2 seconds (10 minutes)
+  private def createExecutorPodWithRetries(pod: Pod): Unit = {
+
+    def createExecutorPod(retriesLeft: Int): Unit = {
+      if (retriesLeft == 0) None
+      else Try {
+        kubernetesClient.pods().create(pod)
+      }.recover {
+        case e: Throwable =>
+          logWarning(s"Couldn't create Spark Executor pod. Trying again in 2 seconds. $retriesLeft retries left.", e)
+          Thread.sleep(2000)
+          createExecutorPod(retriesLeft - 1)
+      }
+    }
+
+    createExecutorPod(300)
+  }
+
+
   def isDeleted(executorId: String): Boolean = deletedExecutorIds.contains(executorId.toLong)
 
   private def onNewSnapshots(
@@ -366,7 +385,7 @@ private[spark] class ExecutorPodsAllocator(
         .addToContainers(executorPod.container)
         .endSpec()
         .build()
-      val createdExecutorPod = kubernetesClient.pods().create(podWithAttachedContainer)
+      val createdExecutorPod = createExecutorPodWithRetries(podWithAttachedContainer)
       try {
         val resources = resolvedExecutorSpec.executorKubernetesResources
         addOwnerReference(createdExecutorPod, resources)
