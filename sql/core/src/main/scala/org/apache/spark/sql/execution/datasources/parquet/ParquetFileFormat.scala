@@ -350,6 +350,9 @@ class ParquetFileFormat
     val isCaseSensitive = sqlConf.caseSensitiveAnalysis
 
     (file: PartitionedFile) => {
+      if (file.partitionValues.numFields != partitionSchema.size) {
+        logWarning(s"Assert is going to fail. PartitionValues: ${file.partitionValues} - PartitionSchema: $partitionSchema")
+      }
       assert(file.partitionValues.numFields == partitionSchema.size)
 
       val fileSplit =
