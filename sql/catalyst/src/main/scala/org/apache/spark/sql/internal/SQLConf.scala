@@ -2029,7 +2029,9 @@ class SQLConf extends Serializable with Logging {
 
   def legacyMsSqlServerNumericMappingEnabled: Boolean =
     getConf(LEGACY_MSSQLSERVER_NUMERIC_MAPPING_ENABLED)
-    
+
+  def maxToStringFields: Int = getConf(SQLConf.MAX_TO_STRING_FIELDS)
+
   def maxPlanStringLength: Int = getConf(SQLConf.MAX_PLAN_STRING_LENGTH).toInt
 
   def setCommandRejectsSparkCoreConfs: Boolean =

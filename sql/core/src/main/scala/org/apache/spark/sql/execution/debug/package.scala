@@ -85,7 +85,6 @@ package object debug {
       append("\nGenerated code:\n")
       append(s"${code}\n")
     }
-    output
   }
 
   /**

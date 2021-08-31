@@ -140,6 +140,10 @@ private[spark] object Utils extends Logging {
   /** Shorthand for calling truncatedString() without start or end strings. */
   def truncatedString[T](seq: Seq[T], sep: String): String = truncatedString(seq, "", sep, "")
 
+  /** Shorthand for calling truncatedString() without start or end strings. */
+  def truncatedString[T](seq: Seq[T], sep: String, maxNumFields: Int): String =
+    truncatedString(seq, "", sep, "", maxNumFields)
+
   /** Serialize an object using Java serialization */
   def serialize[T](o: T): Array[Byte] = {
     val bos = new ByteArrayOutputStream()
