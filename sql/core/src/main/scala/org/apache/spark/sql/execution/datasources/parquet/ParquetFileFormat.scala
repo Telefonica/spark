@@ -351,7 +351,10 @@ class ParquetFileFormat
 
     (file: PartitionedFile) => {
       if (file.partitionValues.numFields != partitionSchema.size) {
-        logWarning(s"Assert is going to fail. PartitionValues: ${file.partitionValues} - PartitionSchema: $partitionSchema")
+        logWarning(
+          s"Assert is going to fail." +
+          s" PartitionValues: ${file.partitionValues} - PartitionSchema: $partitionSchema"
+        )
       }
       assert(file.partitionValues.numFields == partitionSchema.size)
 

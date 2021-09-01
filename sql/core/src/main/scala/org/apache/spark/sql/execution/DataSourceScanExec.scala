@@ -33,9 +33,9 @@ import org.apache.spark.sql.catalyst.plans.physical.{HashPartitioning, Partition
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFileFormat => ParquetSource}
 import org.apache.spark.sql.execution.metric.SQLMetrics
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.{BaseRelation, Filter}
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.util.Utils
 import org.apache.spark.util.collection.BitSet
 
@@ -63,7 +63,9 @@ trait DataSourceScanExec extends LeafExecNode with CodegenSupport {
 
   override def verboseString: String = redact(super.verboseString)
 
-  override def treeString(verbose: Boolean, addSuffix: Boolean, maxFields: Int = SQLConf.get.maxToStringFields): String = {
+  override def treeString(verbose: Boolean,
+                          addSuffix: Boolean,
+                          maxFields: Int = SQLConf.get.maxToStringFields): String = {
     redact(super.treeString(verbose, addSuffix, maxFields))
   }
 
