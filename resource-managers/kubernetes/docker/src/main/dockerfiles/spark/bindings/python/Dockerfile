@@ -20,8 +20,8 @@ FROM $base_img
 WORKDIR /
 RUN mkdir ${SPARK_HOME}/python
 # TODO: Investigate running both pip and pip3 via virtualenvs
-RUN apk add --no-cache python && \
-    apk add --no-cache python3 && \
+RUN apt install -y python && \
+    apt install -y python3 && \
     python -m ensurepip && \
     python3 -m ensurepip && \
     # We remove ensurepip since it adds no functionality since pip is
