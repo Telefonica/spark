@@ -219,6 +219,13 @@ private[spark] object Config extends Logging {
       .stringConf
       .createOptional
 
+  val KUBERNETES_EXECUTOR_DISABLE_CONFIGMAP =
+    ConfigBuilder("spark.kubernetes.executor.disableConfigMap")
+      .doc("If true, disable ConfigMap creation for executors.")
+      .version("3.2.0")
+      .booleanConf
+      .createWithDefault(false)
+
   val KUBERNETES_ALLOCATION_BATCH_SIZE =
     ConfigBuilder("spark.kubernetes.allocation.batch.size")
       .doc("Number of pods to launch at once in each round of executor allocation.")
@@ -503,4 +510,7 @@ private[spark] object Config extends Logging {
   val KUBERNETES_VOLUMES_OPTIONS_SERVER_KEY = "options.server"
 
   val KUBERNETES_DRIVER_ENV_PREFIX = "spark.kubernetes.driverEnv."
+
+  val KUBERNETES_DNSNAME_MAX_LENGTH = 63
+
 }
