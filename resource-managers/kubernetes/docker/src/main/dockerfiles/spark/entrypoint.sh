@@ -37,6 +37,11 @@ if [ -z "$uidentry" ] ; then
 fi
 
 SPARK_K8S_CMD="$1"
+
+if [[ "$IS_PYTHON_ALGORITHM" = "true" ]] && [[ "$SPARK_K8S_CMD" = "driver" ]]; then
+  SPARK_K8S_CMD="$SPARK_K8S_CMD-py"
+fi
+
 case "$SPARK_K8S_CMD" in
     driver | driver-py | driver-r | executor)
       shift 1
