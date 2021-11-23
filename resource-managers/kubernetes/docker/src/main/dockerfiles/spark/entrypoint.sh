@@ -66,6 +66,9 @@ if [ -n "$PYSPARK_FILES" ]; then
     PYTHONPATH="$PYTHONPATH:$PYSPARK_FILES"
 fi
 
+if [[ "$SPARK_K8S_CMD" = "driver-py" ]] && [[ -z "$PYSPARK_APP_ARGS" ]]; then
+  PYSPARK_APP_ARGS="$*"
+fi
 PYSPARK_ARGS=""
 if [ -n "$PYSPARK_APP_ARGS" ]; then
     PYSPARK_ARGS="$PYSPARK_APP_ARGS"
