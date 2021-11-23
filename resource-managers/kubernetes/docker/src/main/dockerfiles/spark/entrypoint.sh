@@ -66,12 +66,14 @@ if [ -n "$PYSPARK_FILES" ]; then
     PYTHONPATH="$PYTHONPATH:$PYSPARK_FILES"
 fi
 
-if [[ "$SPARK_K8S_CMD" = "driver-py" ]] && [[ -z "$PYSPARK_APP_ARGS" ]]; then
-  PYSPARK_APP_ARGS="$*"
-fi
 PYSPARK_ARGS=""
 if [ -n "$PYSPARK_APP_ARGS" ]; then
     PYSPARK_ARGS="$PYSPARK_APP_ARGS"
+fi
+
+PYSPARK_EXEC_COMMAND=""
+if [ "$SPARK_K8S_CMD" = "driver-py" ]; then
+  PYSPARK_EXEC_COMMAND=${*%$PYSPARK_APP_ARGS*}
 fi
 
 R_ARGS=""
@@ -105,7 +107,7 @@ case "$SPARK_K8S_CMD" in
       "$SPARK_HOME/bin/spark-submit"
       --conf "spark.driver.bindAddress=$SPARK_DRIVER_BIND_ADDRESS"
       --deploy-mode client
-      "$@" $PYSPARK_PRIMARY $PYSPARK_ARGS
+      "$PYSPARK_EXEC_COMMAND" $PYSPARK_PRIMARY $PYSPARK_ARGS
     )
     ;;
     driver-r)
