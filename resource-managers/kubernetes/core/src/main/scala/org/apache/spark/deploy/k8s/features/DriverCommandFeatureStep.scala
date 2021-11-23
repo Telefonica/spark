@@ -104,6 +104,7 @@ private[spark] class DriverCommandFeatureStep(conf: KubernetesDriverConf)
         }
       ).flatten
 
+
     // re-write primary resource to be the remote one and upload the related file
     val newResName = KubernetesUtils
       .renameMainAppResource(res, Option(conf.sparkConf), true)
@@ -131,12 +132,25 @@ private[spark] class DriverCommandFeatureStep(conf: KubernetesDriverConf)
       proxyUserArgs = proxyUserArgs :+ "--proxy-user"
       proxyUserArgs = proxyUserArgs :+ conf.proxyUser.get
     }
-    new ContainerBuilder(pod.container)
+
+    val containerBuilder = new ContainerBuilder(pod.container)
       .addToArgs("driver")
       .addToArgs(proxyUserArgs: _*)
       .addToArgs("--properties-file", SPARK_CONF_PATH)
       .addToArgs("--class", conf.mainClass)
       .addToArgs(resolvedResource)
-      .addToArgs(conf.appArgs: _*)
+
+    conf.mainAppResource match {
+      case PythonMainAppResource(res) =>
+        containerBuilder
+          .addNewEnv()
+          .withName("PYSPARK_APP_ARGS")
+          .withValue(conf.appArgs.mkString(" "))
+          .endEnv()
+      case _ =>
+        containerBuilder
+          .addToArgs(conf.appArgs: _*)
+    }
+
   }
 }
