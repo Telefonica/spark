@@ -93,7 +93,6 @@ class DriverCommandFeatureStepSuite extends SparkFunSuite {
 
       val (expectedEnvPy, expectedDriverPy) = expected
       assert(envs === Map(
-        "PYSPARK_APP_ARGS" -> "foo",
         ENV_PYSPARK_PYTHON -> expectedEnvPy,
         ENV_PYSPARK_DRIVER_PYTHON -> expectedDriverPy))
     }
