@@ -143,6 +143,7 @@ private[spark] class DriverCommandFeatureStep(conf: KubernetesDriverConf)
     conf.mainAppResource match {
       case PythonMainAppResource(res) =>
         containerBuilder
+          .addToArgs(conf.appArgs.mkString(" "))
           .addNewEnv()
           .withName("PYSPARK_APP_ARGS")
           .withValue(conf.appArgs.mkString(" "))
