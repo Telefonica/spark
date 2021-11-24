@@ -50,7 +50,7 @@ class DriverCommandFeatureStepSuite extends SparkFunSuite {
       "driver",
       "--properties-file", SPARK_CONF_PATH,
       "--class", KubernetesTestConf.MAIN_CLASS,
-      mainResource, "5 7 9"))
+      mainResource, "5", "7", "9"))
   }
 
   test("python executable precedence") {
@@ -140,7 +140,7 @@ class DriverCommandFeatureStepSuite extends SparkFunSuite {
       "--proxy-user", "test.user",
       "--properties-file", SPARK_CONF_PATH,
       "--class", KubernetesTestConf.MAIN_CLASS,
-      mainResource, "5 7 9"))
+      mainResource, "5", "7", "9"))
   }
 
   test("SPARK-25355: R resource args with proxy-user") {

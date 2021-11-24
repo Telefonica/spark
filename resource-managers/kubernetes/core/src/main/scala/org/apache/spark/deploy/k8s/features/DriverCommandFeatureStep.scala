@@ -133,21 +133,13 @@ private[spark] class DriverCommandFeatureStep(conf: KubernetesDriverConf)
       proxyUserArgs = proxyUserArgs :+ conf.proxyUser.get
     }
 
-    val containerBuilder = new ContainerBuilder(pod.container)
+    new ContainerBuilder(pod.container)
       .addToArgs("driver")
       .addToArgs(proxyUserArgs: _*)
       .addToArgs("--properties-file", SPARK_CONF_PATH)
       .addToArgs("--class", conf.mainClass)
       .addToArgs(resolvedResource)
-
-    conf.mainAppResource match {
-      case PythonMainAppResource(res) =>
-        containerBuilder
-          .addToArgs(conf.appArgs.mkString(" "))
-      case _ =>
-        containerBuilder
-          .addToArgs(conf.appArgs: _*)
-    }
+      .addToArgs(conf.appArgs: _*)
 
   }
 }
