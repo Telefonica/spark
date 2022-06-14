@@ -104,6 +104,7 @@ private[spark] class DriverCommandFeatureStep(conf: KubernetesDriverConf)
         }
       ).flatten
 
+
     // re-write primary resource to be the remote one and upload the related file
     val newResName = KubernetesUtils
       .renameMainAppResource(res, Option(conf.sparkConf), true)
@@ -131,6 +132,7 @@ private[spark] class DriverCommandFeatureStep(conf: KubernetesDriverConf)
       proxyUserArgs = proxyUserArgs :+ "--proxy-user"
       proxyUserArgs = proxyUserArgs :+ conf.proxyUser.get
     }
+
     new ContainerBuilder(pod.container)
       .addToArgs("driver")
       .addToArgs(proxyUserArgs: _*)
@@ -138,5 +140,6 @@ private[spark] class DriverCommandFeatureStep(conf: KubernetesDriverConf)
       .addToArgs("--class", conf.mainClass)
       .addToArgs(resolvedResource)
       .addToArgs(conf.appArgs: _*)
+
   }
 }
