@@ -198,4 +198,13 @@ class KubernetesConfSuite extends SparkFunSuite {
     assert(driverConf.nodeSelector === CUSTOM_NODE_SELECTOR)
     assert(driverConf.driverNodeSelector === CUSTOM_DRIVER_NODE_SELECTOR)
   }
+  
+  test("SPARK-37735: access appId in KubernetesConf") {
+    val sparkConf = new SparkConf(false)
+    val driverConf = KubernetesTestConf.createDriverConf(sparkConf)
+    val execConf = KubernetesTestConf.createExecutorConf(sparkConf)
+    assert(driverConf.asInstanceOf[KubernetesConf].appId === KubernetesTestConf.APP_ID)
+    assert(execConf.asInstanceOf[KubernetesConf].appId === KubernetesTestConf.APP_ID)
+  }
+
 }

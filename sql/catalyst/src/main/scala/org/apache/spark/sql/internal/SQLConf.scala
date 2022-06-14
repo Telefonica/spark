@@ -1656,6 +1656,23 @@ object SQLConf {
       .booleanConf
       .createWithDefault(true)
 
+  val STATEFUL_OPERATOR_USE_STRICT_DISTRIBUTION =
+    buildConf("spark.sql.streaming.statefulOperator.useStrictDistribution")
+      .internal()
+      .doc("The purpose of this config is only compatibility; DO NOT MANUALLY CHANGE THIS!!! " +
+        "When true, the stateful operator for streaming query will use " +
+        "HashClusteredDistribution which guarantees stable state partitioning as long as " +
+        "the operator provides consistent grouping keys across the lifetime of query. " +
+        "When false, the stateful operator for streaming query will use ClusteredDistribution " +
+        "which is not sufficient to guarantee stable state partitioning despite the operator " +
+        "provides consistent grouping keys across the lifetime of query. " +
+        "This config will be set to true for new streaming queries to guarantee stable state " +
+        "partitioning, and set to false for existing streaming queries to not break queries " +
+        "which are restored from existing checkpoints. Please refer SPARK-38204 for details.")
+      .version("3.2.2")
+      .booleanConf
+      .createWithDefault(true)
+
   val FILESTREAM_SINK_METADATA_IGNORED =
     buildConf("spark.sql.streaming.fileStreamSink.ignoreMetadata")
       .internal()
@@ -1665,6 +1682,19 @@ object SQLConf {
       .version("3.2.0")
       .booleanConf
       .createWithDefault(false)
+
+  /**
+   * SPARK-38809 - Config option to allow skipping null values for hash based stream-stream joins.
+   * Its possible for us to see nulls if state was written with an older version of Spark,
+   * the state was corrupted on disk or if we had an issue with the state iterators.
+   */
+  val STATE_STORE_SKIP_NULLS_FOR_STREAM_STREAM_JOINS =
+  buildConf("spark.sql.streaming.stateStore.skipNullsForStreamStreamJoins.enabled")
+    .internal()
+    .doc("When true, this config will skip null values in hash based stream-stream joins.")
+    .version("3.3.0")
+    .booleanConf
+    .createWithDefault(false)
 
   val VARIABLE_SUBSTITUTE_ENABLED =
     buildConf("spark.sql.variable.substitute")
@@ -3375,6 +3405,16 @@ object SQLConf {
     .intConf
     .createWithDefault(0)
 
+  val LEGACY_ALLOW_NULL_COMPARISON_RESULT_IN_ARRAY_SORT =
+    buildConf("spark.sql.legacy.allowNullComparisonResultInArraySort")
+      .internal()
+      .doc("When set to false, `array_sort` function throws an error " +
+        "if the comparator function returns null. " +
+        "If set to true, it restores the legacy behavior that handles null as zero (equal).")
+      .version("3.2.2")
+      .booleanConf
+      .createWithDefault(false)
+
   /**
    * Holds information about keys that have been deprecated.
    *
@@ -3533,6 +3573,9 @@ class SQLConf extends Serializable with Logging {
   def stateStoreMinDeltasForSnapshot: Int = getConf(STATE_STORE_MIN_DELTAS_FOR_SNAPSHOT)
 
   def stateStoreFormatValidationEnabled: Boolean = getConf(STATE_STORE_FORMAT_VALIDATION_ENABLED)
+
+  def stateStoreSkipNullsForStreamStreamJoins: Boolean =
+    getConf(STATE_STORE_SKIP_NULLS_FOR_STREAM_STREAM_JOINS)
 
   def checkpointLocation: Option[String] = getConf(CHECKPOINT_LOCATION)
 
