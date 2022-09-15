@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.control.NonFatal
+import scala.util.Try
 
 import io.fabric8.kubernetes.api.model.{PersistentVolumeClaim, PodBuilder}
 import io.fabric8.kubernetes.client.KubernetesClient
@@ -73,13 +74,32 @@ private[spark] class ExecutorPodsAllocator(
 
   private val shouldDeleteExecutors = conf.get(KUBERNETES_DELETE_EXECUTORS)
 
+    // Retry 300 times waiting 2 seconds (10 minutes)
+  private def getDriverPodWithRetries(name: String) = {
+
+    def getDriverPod(retriesLeft: Int) = {
+      if (retriesLeft == 0) None
+      else Try {
+        kubernetesClient.pods()
+          .withName(name)
+          .get()
+      } recover {
+        case e: Exception =>
+          logWarn(s"Couldn't get Spark Driver pod. Trying again in 2 seconds. $retriesLeft retries left.", e)
+          Thread.sleep(2000)
+          getDriverPod(retriesLeft - 1)
+      }.toOption
+    }
+
+    getDriverPod(300)
+  }
+
+
   val driverPod = kubernetesDriverPodName
-    .map(name => Option(kubernetesClient.pods()
-      .withName(name)
-      .get())
-      .getOrElse(throw new SparkException(
-        s"No pod was found named $name in the cluster in the " +
-          s"namespace $namespace (this was supposed to be the driver pod.).")))
+    .map(name => getDriverPodWithRetries(name)
+    .getOrElse(throw new SparkException(
+      s"No pod was found named $name in the cluster in the " +
+        s"namespace $namespace (this was supposed to be the driver pod.).")))
 
   // Executor IDs that have been requested from Kubernetes but have not been detected in any
   // snapshot yet. Mapped to the (ResourceProfile id, timestamp) when they were created.
@@ -166,7 +186,7 @@ private[spark] class ExecutorPodsAllocator(
       logWarning(s"Executors with ids ${timedOut.mkString(",")} were not detected in the" +
         s" Kubernetes cluster after $podCreationTimeout ms despite the fact that a previous" +
         " allocation attempt tried to create them. The executors may have been deleted but the" +
-        " application missed the deletion event.")
+        s" application missed the deletion event. TimeCreated: $timeCreated")
 
       newlyCreatedExecutors --= timedOut
       if (shouldDeleteExecutors) {
