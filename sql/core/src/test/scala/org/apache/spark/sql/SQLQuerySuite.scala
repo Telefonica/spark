@@ -4564,6 +4564,53 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       }
     }
   }
+
+  test("SPARK-41144: Unresolved hint should not cause query failure") {
+    withTable("t1", "t2") {
+      sql("CREATE TABLE t1(c1 bigint) USING PARQUET")
+      sql("CREATE TABLE t2(c2 bigint) USING PARQUET")
+      sql("SELECT /*+ hash(t2) */ * FROM t1 join t2 on c1 = c2")
+    }
+  }
+
+  test("SPARK-41538: Metadata column should be appended at the end of project") {
+    val tableName = "table_1"
+    val viewName = "view_1"
+    withTable(tableName) {
+      withView(viewName) {
+        sql(s"CREATE TABLE $tableName (a ARRAY<STRING>, s STRUCT<id: STRING>) USING parquet")
+        val id = "id1"
+        sql(s"INSERT INTO $tableName values(ARRAY('a'), named_struct('id', '$id'))")
+        sql(
+          s"""
+             |CREATE VIEW $viewName (id)
+             |AS WITH source AS (
+             |    SELECT * FROM $tableName
+             |),
+             |renamed AS (
+             |    SELECT s.id FROM source
+             |)
+             |SELECT id FROM renamed
+             |""".stripMargin)
+        val query =
+          s"""
+             |with foo AS (
+             |  SELECT '$id' as id
+             |),
+             |bar AS (
+             |  SELECT '$id' as id
+             |)
+             |SELECT
+             |  1
+             |FROM foo
+             |FULL OUTER JOIN bar USING(id)
+             |FULL OUTER JOIN $viewName USING(id)
+             |WHERE foo.id IS NOT NULL
+             |""".stripMargin
+        checkAnswer(sql(query), Row(1))
+      }
+    }
+  }
 }
 
 case class Foo(bar: Option[String])
