@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.control.NonFatal
+import scala.util.Try
 
 import io.fabric8.kubernetes.api.model.{HasMetadata, PersistentVolumeClaim, Pod, PodBuilder}
 import io.fabric8.kubernetes.client.KubernetesClient
@@ -74,13 +75,33 @@ class ExecutorPodsAllocator(
 
   private val shouldDeleteExecutors = conf.get(KUBERNETES_DELETE_EXECUTORS)
 
+
+  // Retry 300 times waiting 2 seconds (10 minutes)
+  private def getDriverPodWithRetries(name: String): Option[Pod] = {
+
+    def getDriverPod(retriesLeft: Int): Option[Pod] = {
+      if (retriesLeft == 0) None
+      else Try {
+        Option(kubernetesClient.pods()
+          .withName(name)
+          .get())
+      }.recover {
+        case e: Throwable =>
+          logWarning(s"Couldn't get Spark Driver pod. Trying again in 2 seconds. $retriesLeft retries left.", e)
+          Thread.sleep(2000)
+          getDriverPod(retriesLeft - 1)
+      }.get
+    }
+
+    getDriverPod(300)
+  }
+
+
   val driverPod = kubernetesDriverPodName
-    .map(name => Option(kubernetesClient.pods()
-      .withName(name)
-      .get())
-      .getOrElse(throw new SparkException(
-        s"No pod was found named $name in the cluster in the " +
-          s"namespace $namespace (this was supposed to be the driver pod.).")))
+    .map(name => getDriverPodWithRetries(name)
+    .getOrElse(throw new SparkException(
+      s"No pod was found named $name in the cluster in the " +
+        s"namespace $namespace (this was supposed to be the driver pod.).")))
 
   // Executor IDs that have been requested from Kubernetes but have not been detected in any
   // snapshot yet. Mapped to the (ResourceProfile id, timestamp) when they were created.
@@ -132,6 +153,25 @@ class ExecutorPodsAllocator(
     }
   }
 
+  // Retry 300 times waiting 2 seconds (10 minutes)
+  private def createExecutorPodWithRetries(pod: Pod): Unit = {
+
+    def createExecutorPod(retriesLeft: Int): Unit = {
+      if (retriesLeft == 0) None
+      else Try {
+        kubernetesClient.pods().create(pod)
+      }.recover {
+        case e: Throwable =>
+          logWarning(s"Couldn't create Spark Executor pod. Trying again in 2 seconds. $retriesLeft retries left.", e)
+          Thread.sleep(2000)
+          createExecutorPod(retriesLeft - 1)
+      }
+    }
+
+    createExecutorPod(300)
+  }
+
+
   def isDeleted(executorId: String): Boolean = deletedExecutorIds.contains(executorId.toLong)
 
   private def onNewSnapshots(
@@ -178,7 +218,7 @@ class ExecutorPodsAllocator(
       logWarning(s"Executors with ids ${timedOut.mkString(",")} were not detected in the" +
         s" Kubernetes cluster after $podCreationTimeout ms despite the fact that a previous" +
         " allocation attempt tried to create them. The executors may have been deleted but the" +
-        " application missed the deletion event.")
+        s" application missed the deletion event. TimeCreated: $timeCreated")
 
       newlyCreatedExecutors --= timedOut
       if (shouldDeleteExecutors) {
@@ -404,7 +444,7 @@ class ExecutorPodsAllocator(
         .build()
       val resources = replacePVCsIfNeeded(
         podWithAttachedContainer, resolvedExecutorSpec.executorKubernetesResources, reusablePVCs)
-      val createdExecutorPod = kubernetesClient.pods().create(podWithAttachedContainer)
+      val createdExecutorPod = createExecutorPodWithRetries(podWithAttachedContainer)
       try {
         addOwnerReference(createdExecutorPod, resources)
         resources
