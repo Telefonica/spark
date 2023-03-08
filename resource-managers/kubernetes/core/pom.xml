@@ -27,7 +27,7 @@
   <artifactId>spark-kubernetes_2.12</artifactId>
   <packaging>jar</packaging>
   <name>Spark Project Kubernetes</name>
-  <version>3.3.1-CUSTOM</version>
+  <version>3.3.2</version>
   <properties>
     <sbt.project.name>kubernetes</sbt.project.name>
     <volcano.exclude>**/*Volcano*.scala</volcano.exclude>
