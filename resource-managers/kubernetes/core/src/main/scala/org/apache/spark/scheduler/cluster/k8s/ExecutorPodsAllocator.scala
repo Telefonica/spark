@@ -22,8 +22,8 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.util.control.NonFatal
 import scala.util.Try
+import scala.util.control.NonFatal
 
 import io.fabric8.kubernetes.api.model.{HasMetadata, PersistentVolumeClaim, Pod, PodBuilder}
 import io.fabric8.kubernetes.client.KubernetesClient
@@ -87,7 +87,8 @@ class ExecutorPodsAllocator(
           .get())
       }.recover {
         case e: Throwable =>
-          logWarning(s"Couldn't get Spark Driver pod. Trying again in 2 seconds. $retriesLeft retries left.", e)
+          logWarning(s"Couldn't get Spark Driver pod. Trying again in 2 seconds. " +
+            s"$retriesLeft retries left.", e)
           Thread.sleep(2000)
           getDriverPod(retriesLeft - 1)
       }.get
@@ -154,21 +155,23 @@ class ExecutorPodsAllocator(
   }
 
   // Retry 300 times waiting 2 seconds (10 minutes)
-  private def createExecutorPodWithRetries(pod: Pod): Unit = {
+  private def createExecutorPodWithRetries(pod: Pod): Pod = {
 
-    def createExecutorPod(retriesLeft: Int): Unit = {
+    def createExecutorPod(retriesLeft: Int): Option[Pod] = {
       if (retriesLeft == 0) None
       else Try {
         kubernetesClient.pods().create(pod)
       }.recover {
         case e: Throwable =>
-          logWarning(s"Couldn't create Spark Executor pod. Trying again in 2 seconds. $retriesLeft retries left.", e)
+          logWarning(s"Couldn't create Spark Executor pod. Trying again in 2 seconds. " +
+            s"$retriesLeft retries left.", e)
           Thread.sleep(2000)
-          createExecutorPod(retriesLeft - 1)
-      }
+          createExecutorPod(retriesLeft - 1).get
+      }.toOption
     }
 
-    createExecutorPod(300)
+    createExecutorPod(300).getOrElse(
+      throw new SparkException("Couldn't create Spark Executor pod."))
   }
 
 
@@ -218,7 +221,7 @@ class ExecutorPodsAllocator(
       logWarning(s"Executors with ids ${timedOut.mkString(",")} were not detected in the" +
         s" Kubernetes cluster after $podCreationTimeout ms despite the fact that a previous" +
         " allocation attempt tried to create them. The executors may have been deleted but the" +
-        s" application missed the deletion event. TimeCreated: $timeCreated")
+        s" application missed the deletion event.")
 
       newlyCreatedExecutors --= timedOut
       if (shouldDeleteExecutors) {
