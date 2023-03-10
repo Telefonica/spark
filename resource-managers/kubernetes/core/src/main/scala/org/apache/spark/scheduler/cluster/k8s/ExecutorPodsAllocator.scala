@@ -26,7 +26,7 @@ import scala.collection.mutable
 import scala.util.Try
 import scala.util.control.NonFatal
 
-import io.fabric8.kubernetes.api.model.{PersistentVolumeClaim, PodBuilder}
+import io.fabric8.kubernetes.api.model.{PersistentVolumeClaim, Pod, PodBuilder}
 import io.fabric8.kubernetes.client.KubernetesClient
 
 import org.apache.spark.{SecurityManager, SparkConf, SparkException}
