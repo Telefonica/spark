@@ -87,6 +87,11 @@ public abstract class WritableColumnVector extends ColumnVector {
     dictionary = null;
   }
 
+  @Override
+  public void closeIfFreeable() {
+    // no-op
+  }
+
   public void reserveAdditional(int additionalCapacity) {
     reserve(elementsAppended + additionalCapacity);
   }
