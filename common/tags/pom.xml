@@ -27,6 +27,7 @@
   </parent>
 
   <artifactId>spark-tags_2.12</artifactId>
+  <version>3.5.4-CUSTOM</version>
   <packaging>jar</packaging>
   <name>Spark Project Tags</name>
   <url>https://spark.apache.org/</url>
