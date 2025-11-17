@@ -29,17 +29,21 @@ ARG spark_uid=185
 
 RUN set -ex && \
     apt-get update && \
-    ln -s /lib /lib64 && \
-    apt install -y bash tini libc6 libpam-modules krb5-user libnss3 procps net-tools && \
-    mkdir -p /opt/spark && \
-    mkdir -p /opt/spark/examples && \
-    mkdir -p /opt/spark/work-dir && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gnupg \
+        dirmngr && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN ln -s /lib /lib64 && \
+    apt-get update && \
+    apt-get install -y bash tini libc6 libpam-modules krb5-user libnss3 procps net-tools && \
+    mkdir -p /opt/spark/examples /opt/spark/work-dir && \
     touch /opt/spark/RELEASE && \
-    rm /bin/sh && \
-    ln -sv /bin/bash /bin/sh && \
+    rm /bin/sh && ln -sv /bin/bash /bin/sh && \
     echo "auth required pam_wheel.so use_uid" >> /etc/pam.d/su && \
     chgrp root /etc/passwd && chmod ug+rw /etc/passwd && \
-    rm -rf /var/cache/apt/* && rm -rf /var/lib/apt/lists/*
+    rm -rf /var/cache/apt/* /var/lib/apt/lists/*
 
 COPY jars /opt/spark/jars
 # Copy RELEASE file if exists
